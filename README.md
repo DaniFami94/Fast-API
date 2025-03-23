@@ -1,6 +1,6 @@
 ```python
 
-#  uvicorn main:app --host 192.168.0.157 --reload , comando para ejecutar la aplicación, es accesible desde cualquier dispositivo que este en el rango de la IP
+#  uvicorn src.main:app --host 192.168.0.157 --reload , comando para ejecutar la aplicación, es accesible desde cualquier dispositivo que este en el rango de la IP
 
 # GET:
 
