@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+</head>
+<body>
+    <!-- llamamos a la variable message que se encuentra en el archivo main.py-->
+    <h1>{{message}}</h1> 
+</body>
+</html>
+
+# Configuración de la carpeta static y templates
+static_path = os.path.join(os.path.dirname(__file__),'static/') # definimos la ruta de la carpeta static que contiene los archivos estáticos
+templates_path = os.path.join(os.path.dirname(__file__),'templates/') # definimos la ruta de la carpeta templates que contiene los archivos html
+app.mount("/static", StaticFiles(directory = static_path), 'static') # definimos la ruta de la carpeta static que contiene los archivos estáticos
+templates = Jinja2Templates(directory = templates_path) # definimos la variable templates que contiene la ruta de la carpeta templates

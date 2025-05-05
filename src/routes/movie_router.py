@@ -1,5 +1,6 @@
 from typing import List
-from fastapi import Path, Query, APIRouter
+from fastapi import Path, Query, APIRouter,Depends
+from src.dataBase.mongodb_interface import MongoDBInterface
 from fastapi.responses import FileResponse, JSONResponse
 from src.models.movie_models import Movie,MovieCreate, MovieUpdate
 
@@ -7,28 +8,34 @@ movies: List[Movie] = []  # Creamos una lista de peliculas vacia
 
 movie_router = APIRouter()  # Creamos un router
 
+# Dependency para obtener la instancia de MongoDB
+async def get_mongodb():
+    from src.main import mongodb
+    return mongodb
+
 # Creación de rutas y endpoints
 
 # En FastAPI, el orden de las rutas importa: las rutas más específicas deben ir antes que las más generales. by_category debe ir antes que {id} para que no se confunda con un id. Si se pone {id} primero, FastAPI lo interpretará como una categoría y no como un id y generará un error.
 
-
 @movie_router.get("/", tags=["Movies"], status_code = 200, response_description = "Nos debe devolver una respuesta exitosa") 
-def get_movies() -> List[Movie]:  # añadimos la lista de peliculas
-   content = [movie.model_dump() for movie in movies]
-   return JSONResponse(content = content, status_code = 200)  # Convertimos la lista de diccionarios a una lista de objetos Movie, usamos la clase JSONResponse para devolver la respuesta en formato JSON
+async def get_movies(mongodb: MongoDBInterface = Depends(get_mongodb)) -> List[Movie]:  # añadimos la lista de peliculas
+   movies = await mongodb.get_all_movies()
+   return JSONResponse(content = movies, status_code = 200)  # Convertimos la lista de diccionarios a una lista de objetos Movie, usamos la clase JSONResponse para devolver la respuesta en formato JSON
 
 
 @movie_router.get("/by_category", tags=["Movies"])
-def get_movie_by_category(category: str = Query(min_length=5, max_length=20)) -> Movie | dict:  # declaramos parámetro query dentro de la función y su tipo
-      
-    for movie in movies:
-        if movie.category == category:  # Si la categoria de la pelicula coincide con la categoria de la query
-            return JSONResponse(content = movie.model_dump(), status_code = 200)  # model_dump() es un método que convierte el diccionario a un objeto Movie, JSONResponse convierte el diccionario a un objeto JSON
-    return JSONResponse(content = {}, status_code = 404)  # si no coincide con ningún id, status_code 404 es un error de no encontrado
+async def get_movie_by_category( category: str = Query(min_length=5, max_length=20),mongodb: MongoDBInterface = Depends(get_mongodb)) -> Movie | dict:
+    movies = await mongodb.get_movies_by_category(category)
+    if movies:
+        return JSONResponse(content=movies, status_code=200)
+    return JSONResponse(content={}, status_code=404)
 
 @movie_router.get("/{id}", tags=["Movies"])  # definimos parametro de ruta {id}
-def get_movie(id: int = Path(gt=0),) -> Movie | dict:  # añadimos validación por parametro de id "gt" significa que el valor debe ser mayor a 0 añadimos id como parametro de la función
-    for movie in movies:  # recorremos el array movies
+async def get_movie(id: int = Path(gt=0),mongodb: MongoDBInterface = Depends(get_mongodb)) -> Movie | dict:  # añadimos validación por parametro de id "gt" significa que el valor debe ser mayor a 0 añadimos id como parametro de la función
+    movies = await mongodb.get_movie_by_id(id)  # llamamos a la función get_movie_by_id de la clase MongoDBInterface
+    if not movies:  # si no hay peliculas
+        return JSONResponse(content = {}, status_code = 404)  # devolvemos un error 404
+    for movie in movies:  # recorremos la lista de peliculas
         if movie.id == id:  # Si es igual a dicho id,  devuelve el diccionario
            return JSONResponse(content = movie.model_dump(), status_code = 200)  # model_dump() es un método que convierte el diccionario a un objeto Movie, JSONResponse convierte el diccionario a un objeto JSON
     return JSONResponse(content = {}, status_code = 404)  # si no coincide con ningún id
@@ -37,12 +44,18 @@ def get_movie(id: int = Path(gt=0),) -> Movie | dict:  # añadimos validación p
 
 # Método POST
 @movie_router.post("/", tags=["Movies"])
-def create_movie(movie: MovieCreate,) -> List[Movie]:  # añadimos el parametro movie de tipo Movie
-    movies.append(movie)
-    content = [movie.model_dump() for movie in movies]  
-    return JSONResponse(content = content, status_code = 201) # status_code 201 es un mensaje de creado, se usa para indicar que se ha creado un nuevo recurso
-    #return RedirectResponse('/movies', status_code = 303)  # el código 303 es una redirección en nuestra aplicación, hay que ponerlo para evitar error de CORS
-
+async def create_movie(movie: MovieCreate, mongodb: MongoDBInterface = Depends(get_mongodb)) -> List[Movie]:  # añadimos el parametro movie de tipo Movie
+    movie_data = movie.model_dump()
+    result = await mongodb.create_movie(movie_data)  
+    if result:
+        return JSONResponse(
+            content={"message": "Movie created", "id": str(result)},
+            status_code=201
+        )
+    return JSONResponse(
+        content={"message": "Error creating movie"},
+        status_code=400
+    )
 # Método PUT para actualizar datos
 @movie_router.put("/{id}", tags=["Movies"])
 def update_movie(id: int, movie: MovieUpdate) -> List[Movie]:  # añadimos el parametro id y movieUpdate
@@ -71,4 +84,5 @@ def delete_movie(id: int) -> List[Movie]:
 def get_file():
     return FileResponse('CV Daniel Famiglietti.pdf') # devuelve un archivo en la ruta especificada
 
-# video 17
+
+# Terminar rutas asincronas!!!!!!!
