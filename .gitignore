@@ -5,3 +5,4 @@ pyvenv.cfg
 secrets
 endpoints.md
 .env*
+README.md
